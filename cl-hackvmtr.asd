@@ -1,6 +1,9 @@
 ;;;; cl-hackwmtr.asd
 
-(asdf:defsystem #:cl-hackwmtr
+;;; TODO: THIS IS WRONG! THE PROJECT IS HACK'S VM TRANSLATOR,
+;;; THEREFORE IT SHOULD BE NAMED CL-HACKVMTR!
+
+(asdf:defsystem #:cl-hackvmtr
   :description "Describe cl-hackwmtr here"
   :author "Lucas Vieira <lucasvieira@protonmail.com>"
   :license  "MIT"

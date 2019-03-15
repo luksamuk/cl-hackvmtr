@@ -1,10 +1,10 @@
 ;;;; writer.lisp
-;;;; Part of cl-hackwmtr.
+;;;; Part of cl-hackvmtr.
 ;;;; Copyright (c) 2019 Lucas Vieira
 ;;;; This project is distributed under the MIT License.
 
 
-(in-package :cl-hackwmtr)
+(in-package :cl-hackvmtr)
 
 (defun vm-parse-commands (command-list)
   (loop for command in command-list
