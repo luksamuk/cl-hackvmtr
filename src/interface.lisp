@@ -6,6 +6,10 @@
 (in-package :cl-hackvmtr)
 
 (defun read-vm-input (file-or-dir)
+  "Takes the path of a file or a directory given as input, and returns a list
+containing two things. The first should be the name for the translated module,
+deduced from file or directory name, and the second should be the list of files
+which will be compiled."
   (labels ((module-from-path (path)
 	     (cond ((equal (search ".vm" path :from-end t)
 			   (- (length path) 3))
@@ -31,6 +35,8 @@
 	  (t (error "Cannot open file.")))))
 
 (defun read-vm-file (file-path)
+  "Returns a list containing only clean an non-comment commands in a file. Each
+element corresponds to a line on the script."
   (cleanup-commands
    (handler-case
        (with-open-file (stream file-path
@@ -46,6 +52,7 @@
      (if ,var ,conseq ,altern)))
 
 (defun vm-translate (file-or-dir)
+  "Global command for translating a VM file or directory."
   (if-let (path (truename file-or-dir))
     (let ((input (read-vm-input (uiop:unix-namestring path))))
       (write-asm-file (concatenate 'string
