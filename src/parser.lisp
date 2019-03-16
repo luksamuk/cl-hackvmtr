@@ -45,8 +45,8 @@
     ("argument" . "ARG")
     ("this"     . "THIS")
     ("that"     . "THAT")
-    ("pointer"  . "3") ; Valid: pointer 0 (this), pointer 1 (that)
-    ("temp"     . "5") ; Valid: temp 0 through 7 inclusive (R5~R12)
+    ("pointer"  . "3") ; 0=THIS, 1=THAT. Change this to change THIS & THAT
+    ("temp"     . "5") ; Valid: temp 0~7 inclusive (R5~R12). NOT POINTERS!
     ("constant")  ; No base. A constant supplies the following i
     ("static"   . "16")) ; Static variables
   "Base addresses for memory segments. These segments differ from RAM segments
@@ -81,6 +81,8 @@ wrt. the actual idioms used in the assembly code.")
 
 
 (defun fetch-segment-baseaddr (segment i) ; todo: special segments
+  "Fetches a segment's base address.
+Address is stored in A, and there is no guarantee that D will be intact."
   (let* ((inum (format nil "@~d" i))
 	 (baseaddr (segment-base-address segment))
 	 (segm (format nil "@~a" baseaddr)))
@@ -88,18 +90,33 @@ wrt. the actual idioms used in the assembly code.")
     (when (and (null baseaddr)
 	       (not (string= segment "constant")))
       (error "Invalid segment: ~a" segment))
-    
 
-    (if (string= segment "constant")
-	(list inum
-	      "D=A") ; data from A is automatically put in D
-	(cons segm
-	      (if (not (string= i "0"))
-		  (list "D=A"
-			inum
-			"A=D+A"
-			"D=M")
-		  (list "D=M")))))) ; data from M[A] is put in D
+    (cond ((string= segment "constant") ; 'constant' just puts a number in A
+	   (list inum))         ; Load i in A
+	  ;; 'temp', 'static' & 'pointer' are special in the sense that we
+	  ;; use them as data segments. 'pointer' is used to manipulate
+	  ;; the current pointed regions of 'this' and 'that', so they're
+	  ;; pretty much handled as raw information.
+	  ((or (string= segment "temp")
+	       (string= segment "pointer")
+	       (string= segment "static"))
+	   (if (string= i "0")  ;; Check if calculation is needed
+	       (list segm)      ; If not, load @5 into A
+	       ;; If needed, calculate absolute pointer into A
+	       (list segm       ; Load @5 into A
+		     "D=A"      ; Store A into D
+		     inum       ; Load i into A
+		     "A=D+A"))) ; Store addr + A in A
+	  ;; Segment with address = 0 is the segment itself
+	  ((string= i "0")
+	   (list segm           ; Load base address pointer in A
+		 "A=M"))        ; Load base address in A
+	  ;; Segment with address > 0 needs its abs value calculated.
+	  ;; Destroys value in D.
+	  (t (list segm         ; Load base address pointer in A
+		   "D=M"        ; Load base address in D
+		   inum         ; Load i in A
+		   "A=D+A"))))) ; Store baseaddr + A in A
 
 
 (defmacro hack-inline (&rest commands)
@@ -113,7 +130,10 @@ wrt. the actual idioms used in the assembly code.")
 	       "M=M+1")) ; increment stack top pointer
 
 (defun push-segment (segment i)
-  (hack-inline (fetch-segment-baseaddr segment i) ; data is in D
+  (hack-inline (fetch-segment-baseaddr segment i) ; address is in A
+	       (if (string= segment "constant")   ;; constant value check
+		   "D=A"                          ; if constant, D gets A
+		   "D=M")                         ; if not, D gets M[A]
 	       (push-from-dreg))) ; increment stack top pointer
 
 (defun pop-into-dreg ()
@@ -130,10 +150,13 @@ wrt. the actual idioms used in the assembly code.")
 	       "M=D"   ; put data stored in D in temporary location
 	       (fetch-segment-baseaddr segment i) ; dest addr is in A
 	       "D=A"   ; store A in D
+	       "@R14"
+	       "M=D"   ; save address where data will be stored in R14
 	       "@R13"
-	       "A=M"   ; put contents of R13 in A
-	       ;; In A, we have the dest addr. In D, we have popped data
-	       "M=D"))   ; make final assignment
+	       "D=M"   ; recover R13 data into D
+	       "@R14"
+	       "A=M"   ; recover address in R14 into A
+	       "M=D")) ; save data stored in D into M[A]
 
 (defun fetch-operands-from-stack ()
   "Fetches operands from stack so that X is in D and Y is in A"
