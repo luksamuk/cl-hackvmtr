@@ -1,0 +1,52 @@
+#+TITLE: cl-hackvmtr
+#+AUTHOR: Lucas Vieira
+#+EMAIL: lucasvieira@lisp.com.br
+
+* Overview
+
+cl-hackvmtr is a VM Translator for the Hack platform, written in Common Lisp. It
+was designed as the exercise for Chapters 7 and 8 of the book The Elements of
+Computing Systems, by Nisan and Schocken.
+
+More information on my progress on the book can be seen at my [[https://github.com/luksamuk/study][study]] repository.
+
+* Usage
+
+One should be able to use this VM Translator by either using Quicklisp directly
+or Roswell.
+
+** Using with Quicklisp and the REPL directly
+
+Either add this repository to your ~local-projects~ folder or install it using
+Quicklisp (this project should be available from Ultralisp. If you don't know
+how to add a new dist, I recommend taking a look at the [[https://github.com/commonlispbr/quicksys][Quicksys]] tool).
+
+Then, given a ~.vm~ file, or a directory containing ~.vm~ files, one might use the
+following:
+
+#+begin_src lisp
+(ql:quickload :cl-hackvmtr)
+(cl-hackvmtr:vm-translate "/path/to/file/or/directory")
+#+end_src
+
+This will create a ~directory-or-file-name.asm~ file, which can be finally
+compiled into bytecode for the Hack platform.
+
+** Using from Roswell
+
+One can simply install this tool using Roswell with the following command:
+
+#+begin_src bash
+ros install luksamuk/cl-hackvmtr
+#+end_src
+
+From there on, a script called ~hackvmtr~ should be available to invoke directly
+from command line. Simply pass as argument either a single ~.vm~ file, or a
+directory containing ~.vm~ files, and ~hackvmtr~ will attempt to generate a single
+assembly file for the given file or directory.
+
+* License
+
+This project is distributed under the MIT License. See LICENSE for details.
+
+Copyright (c) 2019 Lucas Vieira
