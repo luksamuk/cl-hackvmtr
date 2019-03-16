@@ -10,6 +10,8 @@ Computing Systems, by Nisan and Schocken.
 
 More information on my progress on the book can be seen at my [[https://github.com/luksamuk/study][study]] repository.
 
+*This project is currently Chapter 7-compliant only.*
+
 * Usage
 
 One should be able to use this VM Translator by either using Quicklisp directly
