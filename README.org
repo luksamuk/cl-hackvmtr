@@ -50,7 +50,7 @@ assembly file for the given file or directory.
 ** Using =qlot=
 
 This project also supports [[https://github.com/fukamachi/qlot][qlot]], so one will be able to use this tool to either
-run or 
+run or develop this project.
 
 * Unit Testing
 
