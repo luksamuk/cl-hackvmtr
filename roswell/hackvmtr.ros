@@ -1,0 +1,45 @@
+#!/bin/sh
+#|-*- mode:lisp -*-|#
+#|
+exec ros -Q -- $0 "$@"
+|#
+
+
+;;;; hackvmtr.ros
+;;;; Part of cl-hackvmtr.
+;;;; Copyright (c) 2019 Lucas Vieira
+;;;; This project is distributed under the MIT License.
+
+(progn (ros:ensure-asdf)
+       (unless (find-package :cl-hackvmtr)
+	 (ql:quickload :cl-hackvmtr :silent t)))
+
+(defpackage :ros.script.hackvmtr
+  (:use :cl))
+
+(in-package :ros.script.hackvmtr)
+
+(defmacro format-usage (&body strings)
+  `(format t (concatenate 'string
+			  ,@(loop for string in strings
+			       collect (concatenate 'string
+						    string "~%")))))
+
+(defun show-usage ()
+  (format-usage
+   "cl-hackvmtr v1.0.0"
+   "Copyright (c) 2019 Lucas Vieira"
+   "Distributed under the MIT License.~%"
+   "Usage: hackvmtr /path/to/file/or/dir~%"
+   "This is the VM translator for the Hack platform, which takes one or"
+   "a series of .vm files and turns them into a single .asm file. This tool"
+   "was written in Common Lisp."))
+
+(defun main (&rest argv)
+  (if (or (not argv)
+	  (> (length argv) 1))
+      (show-usage)
+      (progn (format t "Translating \"~a\"...~%" (car argv))
+	     (cl-hackvmtr:vm-translate (car argv)))))
+
+;;; vim: set ft=lisp lisp:

@@ -13,47 +13,47 @@
 ;; 2048~16383  => Heap
 ;; 16384~24575 => I/O map
 ;; 24575~32767 => Unused
-(defparameter *ram-table-base*
-  '((special . ("0"       "15"))
-    (static  . ("16"     "255"))
-    (stack   . ("256"   "2047"))
-    (heap    . ("2048"  "16383"))
-    (io      . ("16384" "24575"))
-    (unused  . ("24576" "32767")))
-  "Base addresses for RAM segments.")
+;; (defparameter *ram-table-base*
+;;   '((special . ("0"       "15"))
+;;     (static  . ("16"     "255"))
+;;     (stack   . ("256"   "2047"))
+;;     (heap    . ("2048"  "16383"))
+;;     (io      . ("16384" "24575"))
+;;     (unused  . ("24576" "32767")))
+;;   "Base addresses for RAM segments.")
 
 
-(defun ram-base-address (segment &key (position 'both))
-  "Returns the base address for a specific RAM segment.
-Passing key argument POSITION returns only a specific position of the segment,
-which could be START, END or BOTH, the latter being the default option."
-  (let ((segment-addrs (cdr (assoc segment *ram-table-base*))))
-    (when segment-addrs
-      (or (and (eq position 'start)
-	       (car segment-addrs))
-	  (and (eq position 'end)
-	       (cadr segment-addrs))
-	  (and (eq position 'both)
-	       segment-addrs)))))
+;; (defun ram-base-address (segment &key (position 'both))
+;;   "Returns the base address for a specific RAM segment.
+;; Passing key argument POSITION returns only a specific position of the segment,
+;; which could be START, END or BOTH, the latter being the default option."
+;;   (let ((segment-addrs (cdr (assoc segment *ram-table-base*))))
+;;     (when segment-addrs
+;;       (or (and (eq position 'start)
+;; 	       (car segment-addrs))
+;; 	  (and (eq position 'end)
+;; 	       (cadr segment-addrs))
+;; 	  (and (eq position 'both)
+;; 	       segment-addrs)))))
 
 ;;; TODO:
 ;; - function
 ;; - call
 ;; - label
 (defparameter *segments-table-base*
-  '((local    . "LCL")
-    (argument . "ARG")
-    (this     . "THIS")
-    (that     . "THAT")
-    (pointer  . "3") ; Valid: pointer 0 (this), pointer 1 (that)
-    (temp     . "5") ; Valid: temp 0 through 7 inclusive (R5~R12)
-    (constant)  ; No base. A constant supplies the following i
-    (static   . "16")) ; Static variables
+  '(("local"    . "LCL")
+    ("argument" . "ARG")
+    ("this"     . "THIS")
+    ("that"     . "THAT")
+    ("pointer"  . "3") ; Valid: pointer 0 (this), pointer 1 (that)
+    ("temp"     . "5") ; Valid: temp 0 through 7 inclusive (R5~R12)
+    ("constant")  ; No base. A constant supplies the following i
+    ("static"   . "16")) ; Static variables
   "Base addresses for memory segments. These segments differ from RAM segments
 wrt. the actual idioms used in the assembly code.")
 
 (defun segment-base-address (segment)
-  (cdr (assoc segment *segments-table-base*)))
+  (cdr (assoc segment *segments-table-base* :test #'equal)))
 
 (defun asm-static-ainstr (module-name static-num)
   (format nil "~a.~d" module-name static-num))
@@ -84,14 +84,17 @@ wrt. the actual idioms used in the assembly code.")
   (let* ((inum (format nil "@~d" i))
 	 (baseaddr (segment-base-address segment))
 	 (segm (format nil "@~a" baseaddr)))
-    (when (and (not baseaddr)
-	       (not (eq segment 'constant)))
+
+    (when (and (null baseaddr)
+	       (not (string= segment "constant")))
       (error "Invalid segment: ~a" segment))
-    (if (eq segment 'constant)
+    
+
+    (if (string= segment "constant")
 	(list inum
 	      "D=A") ; data from A is automatically put in D
 	(cons segm
-	      (if (not (zerop i))
+	      (if (not (string= i "0"))
 		  (list "D=A"
 			inum
 			"A=D+A"
@@ -120,7 +123,7 @@ wrt. the actual idioms used in the assembly code.")
 	       "D=M")) ; put M[A] in D
 
 (defun pop-segment (segment i)
-  (when (eq segment 'constant)
+  (when (string= segment "constant")
     (error "Cannot pop to a constant value"))
   (hack-inline (pop-into-dreg) ; pop data into D register
 	       "@R13"
@@ -192,38 +195,43 @@ not conflict with others.")
     commlist))
 
 
-	       
+(defmacro case-string (keyform &body cases)
+  (cons 'cond
+	(loop for case in cases
+	   collect `((string= ,keyform ,(car case))
+		     ,@(cdr case)))))
+		
 
 (defun perform-operation (operation)
-  (case operation
-    (add   (hack-inline (fetch-operands-from-stack)
-			"D=D+A"
-			(push-from-dreg)))
-    (sub   (hack-inline (fetch-operands-from-stack)
-			"D=D-A"
-			(push-from-dreg)))
-    (neg   (hack-inline (pop-into-dreg)
-			"D=-D"
-			(push-from-dreg)))
-    (eq    (hack-compare-test 'eq))
-    (gt    (hack-compare-test 'gt))
-    (lt    (hack-compare-test 'lt))
-    (and   (hack-inline (fetch-operands-from-stack)
-			"D=D&A"
-			(push-from-dreg)))
-    (or    (hack-inline (fetch-operands-from-stack)
-			"D=D|A"
-			(push-from-dreg)))
-    (not   (hack-inline (pop-into-dreg)
-			"D=!D"
-			(push-from-dreg)))))
+  (case-string operation
+    ("add"   (hack-inline (fetch-operands-from-stack)
+			  "D=D+A"
+			  (push-from-dreg)))
+    ("sub"   (hack-inline (fetch-operands-from-stack)
+			  "D=D-A"
+			  (push-from-dreg)))
+    ("neg"   (hack-inline (pop-into-dreg)
+			  "D=-D"
+			  (push-from-dreg)))
+    ("eq"    (hack-compare-test 'eq))
+    ("gt"    (hack-compare-test 'gt))
+    ("lt"    (hack-compare-test 'lt))
+    ("and"   (hack-inline (fetch-operands-from-stack)
+			  "D=D&A"
+			  (push-from-dreg)))
+    ("or"    (hack-inline (fetch-operands-from-stack)
+			  "D=D|A"
+			  (push-from-dreg)))
+    ("not"   (hack-inline (pop-into-dreg)
+			  "D=!D"
+			  (push-from-dreg)))))
 
 
 (defparameter *arithmetic-operations*
-  '(add sub neg eq gt lt and or not))
+  (list "add" "sub" "neg" "eq" "gt" "lt" "and" "or" "not"))
 
 (defparameter *stack-operations*
-  '(push pop))
+  (list "push" "pop"))
 
 (defun intern-or-parse-value (x)
   (handler-bind ((error (lambda (e)
@@ -234,25 +242,24 @@ not conflict with others.")
 	(intern (string-upcase x))))))
 
 (defun vm-dispatch-command (command-string)
-  (let ((commands (mapcar #'intern-or-parse-value
-			  (split-sequence #\Space command-string))))
-    (cond ((member (car commands) *arithmetic-operations*)
+  (let ((commands (split-sequence #\Space command-string)))
+    (cond ((member (car commands) *arithmetic-operations* :test #'equal)
 	   (unless (= (length commands) 1)
 	     (error "Command ~a has too many arguments.~%In: ~a"
 		    (car commands)
 		    commands))
 	   (perform-operation (car commands)))
-	  ((member (car commands) *stack-operations*)
+	  ((member (car commands) *stack-operations* :test #'equal)
 	   (unless (= (length commands) 3)
 	     (error "Command ~a has too ~a arguments.~%In: ~a"
 		    (car commands)
 		    (if (< (length commands) 3) "few" "many")
 		    commands))
-	   (apply (if (eq (car commands) 'push)
+	   (apply (if (string= (car commands) "push")
 		      #'push-segment
 		      #'pop-segment)
 		  (cdr commands)))
-	  (t (error "Unknown command: ~a" commands)))))
+	  (t (error "Unknown command: ~a" (car commands))))))
 
 (defun vm-initialization ()
   "Initialize virtual machine by setting up special pointers."

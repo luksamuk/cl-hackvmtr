@@ -4,4 +4,5 @@
 ;;;; This project is distributed under the MIT License.
 
 (defpackage #:cl-hackvmtr
-  (:use #:cl #:split-sequence))
+  (:use #:cl #:split-sequence)
+  (:export #:vm-translate))

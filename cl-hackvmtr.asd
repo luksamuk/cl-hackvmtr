@@ -1,10 +1,7 @@
 ;;;; cl-hackwmtr.asd
 
-;;; TODO: THIS IS WRONG! THE PROJECT IS HACK'S VM TRANSLATOR,
-;;; THEREFORE IT SHOULD BE NAMED CL-HACKVMTR!
-
 (asdf:defsystem #:cl-hackvmtr
-  :description "Describe cl-hackwmtr here"
+  :description "VM Translator for the nand2tetris Hack platform"
   :author "Lucas Vieira <lucasvieira@protonmail.com>"
   :license  "MIT"
   :version "0.0.1"
