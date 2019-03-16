@@ -296,25 +296,25 @@ indicates the type of comparision operation which will be written."
 produces Hack assembly code for that operation."
   (case-string operation
     ("add"   (hack-inline (fetch-operands-from-stack)
-			  "D=D+A"
+			  "D=D+A" ; Add operands, put in D
 			  (push-from-dreg)))
     ("sub"   (hack-inline (fetch-operands-from-stack)
-			  "D=D-A"
+			  "D=D-A" ; Subtract operands, put in D
 			  (push-from-dreg)))
     ("neg"   (hack-inline (pop-into-dreg)
-			  "D=-D"
+			  "D=-D"  ; Put numeric opposite of single operand in D
 			  (push-from-dreg)))
-    ("eq"    (hack-compare-test 'eq))
-    ("gt"    (hack-compare-test 'gt))
-    ("lt"    (hack-compare-test 'lt))
+    ("eq"    (hack-compare-test 'eq)) ; Dispatch = test
+    ("gt"    (hack-compare-test 'gt)) ; Dispatch > test
+    ("lt"    (hack-compare-test 'lt)) ; Dispatch < test
     ("and"   (hack-inline (fetch-operands-from-stack)
-			  "D=D&A"
+			  "D=D&A" ; Bitwise AND, put in D
 			  (push-from-dreg)))
     ("or"    (hack-inline (fetch-operands-from-stack)
-			  "D=D|A"
+			  "D=D|A" ; Bitwise OR, put in D
 			  (push-from-dreg)))
     ("not"   (hack-inline (pop-into-dreg)
-			  "D=!D"
+			  "D=!D"  ; Put negation of single operand in D
 			  (push-from-dreg)))))
 
 

@@ -45,6 +45,17 @@ from command line. Simply pass as argument either a single ~.vm~ file, or a
 directory containing ~.vm~ files, and ~hackvmtr~ will attempt to generate a single
 assembly file for the given file or directory.
 
+** Using =qlot=
+
+This project also supports [[https://github.com/fukamachi/qlot][qlot]], so one will be able to use this tool to either
+run or 
+
+* Unit Testing
+
+This project provides no utilities for unit testing, since the ~nand2tetris~ book
+materials (which can be found online) already provide test scripts and tools to
+verify the correctness of this software.
+
 * License
 
 This project is distributed under the MIT License. See LICENSE for details.

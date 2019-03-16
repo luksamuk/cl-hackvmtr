@@ -30,7 +30,7 @@ which will be compiled."
 					 file-or-dir
 					 "/*.vm"))))
 	  ((uiop:file-exists-p file-or-dir)
-	   (list (module-from-path file-or-dir) ; TODO: cleanup filename
+	   (list (module-from-path file-or-dir)
 		 (list (probe-file file-or-dir))))
 	  (t (error "Cannot open file.")))))
 
