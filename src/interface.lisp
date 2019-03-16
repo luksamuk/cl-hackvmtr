@@ -47,17 +47,27 @@ element corresponds to a line on the script."
      (error () nil))))
 
 
-(defmacro if-let ((var value) conseq &optional (altern nil))
+(defmacro if-let ((var value) conseq &optional altern)
+  "Attempts to bind VALUE to VAR, then checks whether VAR is NIL. If not,
+executes the command at CONSEQ. Otherwise, executes the command at ALTERN."
   `(let ((,var ,value))
-     (if ,var ,conseq ,altern)))
+     (if (not (null ,var)) ,conseq ,altern)))
+
 
 (defun vm-translate (file-or-dir)
   "Global command for translating a VM file or directory."
   (if-let (path (truename file-or-dir))
     (let ((input (read-vm-input (uiop:unix-namestring path))))
-      (write-asm-file (concatenate 'string
-				   "./" (car input) ".asm")
-		      (vm-parse-all-commands
-		       (mapcar #'read-vm-file
-			       (cadr input)))))))
+      (handler-case
+	  (progn
+	    (write-asm-file (concatenate 'string
+					 "./" (car input) ".asm")
+			    (vm-parse-all-commands
+			     (mapcar #'read-vm-file
+				     (cadr input))))
+	    (format t "Translation successful!~%Wrote \"~a\".~%"
+		    (concatenate 'string (car input) ".asm")))
+	(error (err)
+	  (format t "~a~%" err)
+	  (format t "Error translating project. Bailing out.~%"))))))
 
