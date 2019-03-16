@@ -261,12 +261,20 @@ not conflict with others.")
 		  (cdr commands)))
 	  (t (error "Unknown command: ~a" (car commands))))))
 
+(defun initialize-segment (segment initial-value)
+  (hack-inline (format nil "@~d" initial-value)
+	       "D=A"
+	       (format nil "@~a" segment)
+	       "M=D"))
+
 (defun vm-initialization ()
   "Initialize virtual machine by setting up special pointers."
-  (list "@256" ; set SP to base stack address
-	"D=A"
-	"@SP"
-	"M=D"))
+  (list (initialize-segment "SP"    256)
+	;; Other base addresses. These are potential placeholders
+	(initialize-segment "LCL"   300)
+	(initialize-segment "ARG"   400)
+	(initialize-segment "THIS" 3000)
+	(initialize-segment "THAT" 3010)))
 
 (defun vm-halt ()
   "Halt virtual machine by using an infinite loop."
