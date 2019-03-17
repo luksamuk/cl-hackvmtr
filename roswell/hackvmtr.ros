@@ -27,14 +27,13 @@ exec ros -Q -- $0 "$@"
 
 (defun show-usage ()
   (format-usage
-   "cl-hackvmtr v0.5.0"
+   "cl-hackvmtr v0.6.0 beta"
    "Copyright (c) 2019 Lucas Vieira"
    "Distributed under the MIT License.~%"
    "Usage: hackvmtr /path/to/file/or/dir~%"
    "This is the VM translator for the Hack platform, which takes one or"
    "a series of .vm files and turns them into a single .asm file. This tool"
-   "was written in Common Lisp.~%"
-   "NOTE: This translator is currently Chapter 7-compliant only."))
+   "was written in Common Lisp."))
 
 (defun main (&rest argv)
   (if (or (not argv)

@@ -5,6 +5,42 @@
 
 (in-package :cl-hackvmtr)
 
+#|
+                             ***  TODO LIST  ***
+
+DONE - New commands for Program Control Flow:
+- label LABEL   => Names a label at point
+- goto LABEL    => Unconditionally jump to a label (JMP-style)
+- if-goto LABEL => Jump to label iff popped value is not zero (JNE-style)
+
+New commands for Function Calling:
+- function F N => Starts the code of a function F with N local variables
+- call F M     => Calls function F, and states that M arguments were pushed to
+                  the stack
+- return       => Return the called function
+
+Functions to be implemented:
+- Sys.init     => Argument-less function, responsible for calling the entry
+                  point (and maybe setting up memory segments?)
+
+NOTES:
+- Need to see if I need to handle control flow and function commands as separate
+  types of commands; I think I probably should, to keep the program clean.
+- Commands for control flow are simple enough, and easy to implement. Should be
+  the first step, and may be executed quickly.
+- Function calling commands are trickier, but intuition dictates that they might
+  be better expressed as meta-commands. For example, a "call F M" command
+  involves pushing a function's frame to the stack; pushing anything is still
+  technically at VM level, so maybe we should replace it by equivalent labels
+  and such.
+- I think I could add tail call optimization when implementing the call command.
+  For that, I'll revisit the explicit-control evaluator code on SICP's video
+  lectures, to figure out a simple way to do that.
+
+|#
+
+
+
 ;;; The following commented code can be ignored, and will potentially be removed
 ;;; soon.
 
@@ -53,10 +89,6 @@
 
 ;;; =========================== Global Parameters ========================== ;;;
 
-;;; TODO:
-;; - function
-;; - call
-;; - label
 (defparameter *segments-table-base*
   '(("local"    . "LCL")
     ("argument" . "ARG")
@@ -83,6 +115,11 @@ comparision operations for the VM.")
 (defparameter *stack-operations*
   (list "push" "pop")
   "Lists the strings corresponding to possible stack operations for the VM.")
+
+(defparameter *flow-operations*
+  (list "label" "goto" "if-goto")
+  "Lists the strings corresponding to possible control flow operations for the
+VM.")
 
 ;;; ============================== Utilities =============================== ;;;
 
@@ -319,28 +356,51 @@ produces Hack assembly code for that operation."
 
 
 
+;;; ================ Control Flow Operations Translation =================== ;;;
+
+(defun perform-control-flow (operation operand)
+  (case-string operation
+    ("label"   (hack-inline (hack-enclose operand)))
+    ("goto"    (hack-inline (hack-ref operand)
+			    "0;JMP"))
+    ("if-goto" (hack-inline (pop-into-dreg)
+			    (hack-ref operand)
+			    "D;JNE"))))
+
+
+
 ;;; =================== General VM Command Translation ===================== ;;;
+
+(defmacro command-of-p (command command-list)
+  `(member ,command ,command-list :test #'equal))
+
+(defmacro check-command-length (split-command ideal-arity)
+  `(unless (= (length ,split-command) ,ideal-arity)
+     (error "Command ~a has too ~a arguments.~%In: ~a"
+	    (car ,split-command)
+	    (if (< (length ,split-command) ,ideal-arity) "few" "many")
+	    ,split-command)))
 
 (defun vm-dispatch-command (command-string)
   "Takes a COMMAND-STRING and dispatches it to translation subroutines,
 returning a list of Hack assembly commands."
   (let ((commands (split-sequence #\Space command-string)))
-    (cond ((member (car commands) *arithmetic-operations* :test #'equal)
-	   (unless (= (length commands) 1)
-	     (error "Command ~a has too many arguments.~%In: ~a"
-		    (car commands)
-		    commands))
+    ;;       Arithmetic operations
+    (cond ((command-of-p (car commands) *arithmetic-operations*)
+	   (check-command-length commands 1)
 	   (perform-operation (car commands)))
-	  ((member (car commands) *stack-operations* :test #'equal)
-	   (unless (= (length commands) 3)
-	     (error "Command ~a has too ~a arguments.~%In: ~a"
-		    (car commands)
-		    (if (< (length commands) 3) "few" "many")
-		    commands))
+	  ;; Stack operations
+	  ((command-of-p (car commands) *stack-operations*)
+	   (check-command-length commands 3)
 	   (apply (if (string= (car commands) "push")
 		      #'push-segment
 		      #'pop-segment)
 		  (cdr commands)))
+	  ;; Control flow operations
+	  ((command-of-p (car commands) *flow-operations*)
+	   (check-command-length commands 2)
+	   (apply #'perform-control-flow commands))
+	  ;; Error or unexisting command
 	  (t (error "Unknown command: ~a" (car commands))))))
 
 

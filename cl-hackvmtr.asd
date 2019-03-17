@@ -4,7 +4,7 @@
   :description "VM Translator for the nand2tetris Hack platform"
   :author "Lucas Vieira <lucasvieira@protonmail.com>"
   :license  "MIT"
-  :version "0.5.0"
+  :version "0.6.0"
   :serial t
   :depends-on (#:split-sequence)
   :components ((:file "package")
