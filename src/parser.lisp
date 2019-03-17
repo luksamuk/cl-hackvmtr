@@ -359,6 +359,8 @@ produces Hack assembly code for that operation."
 ;;; ================ Control Flow Operations Translation =================== ;;;
 
 (defun perform-control-flow (operation operand)
+  "Takes a control flow string OPERATION, along with its string OPERAND, and
+produces Hack assembly code for that operation."
   (case-string operation
     ("label"   (hack-inline (hack-enclose operand)))
     ("goto"    (hack-inline (hack-ref operand)
@@ -372,9 +374,12 @@ produces Hack assembly code for that operation."
 ;;; =================== General VM Command Translation ===================== ;;;
 
 (defmacro command-of-p (command command-list)
+  "Checks whether a certain COMMAND belongs to a COMMAND-LIST."
   `(member ,command ,command-list :test #'equal))
 
 (defmacro check-command-length (split-command ideal-arity)
+  "Checks whether a command SPLIT-COMMAND, split into a list of strings, has a
+certain IDEAL-ARITY length."
   `(unless (= (length ,split-command) ,ideal-arity)
      (error "Command ~a has too ~a arguments.~%In: ~a"
 	    (car ,split-command)
