@@ -5,44 +5,37 @@
 
 (in-package :cl-hackvmtr)
 
-#|
-                             ***  TODO LIST  ***
 
-DONE - New commands for Program Control Flow:
-- label LABEL   => Names a label at point
-- goto LABEL    => Unconditionally jump to a label (JMP-style)
-- if-goto LABEL => Jump to label iff popped value is not zero (JNE-style)
+;;                              ***  TODO LIST  ***
 
-New commands for Function Calling:
-- function F N => Starts the code of a function F with N local variables
-- call F M     => Calls function F, and states that M arguments were pushed to
-                  the stack
-- return       => Return the called function
+;; DONE - New commands for Program Control Flow:
+;; - label LABEL   => Names a label at point
+;; - goto LABEL    => Unconditionally jump to a label (JMP-style)
+;; - if-goto LABEL => Jump to label iff popped value is not zero (JNE-style)
 
-Functions to be implemented:
-- Sys.init     => Argument-less function, responsible for calling the entry
-                  point (and maybe setting up memory segments?)
+;; New commands for Function Calling:
+;; - function F N => Starts the code of a function F with N local variables
+;; - call F M     => Calls function F, and states that M arguments were pushed to
+;;                   the stack
+;; - return       => Return the called function
 
-NOTES:
-- Need to see if I need to handle control flow and function commands as separate
-  types of commands; I think I probably should, to keep the program clean.
-- Commands for control flow are simple enough, and easy to implement. Should be
-  the first step, and may be executed quickly.
-- Function calling commands are trickier, but intuition dictates that they might
-  be better expressed as meta-commands. For example, a "call F M" command
-  involves pushing a function's frame to the stack; pushing anything is still
-  technically at VM level, so maybe we should replace it by equivalent labels
-  and such.
-- I think I could add tail call optimization when implementing the call command.
-  For that, I'll revisit the explicit-control evaluator code on SICP's video
-  lectures, to figure out a simple way to do that.
+;; Functions to be implemented:
+;; - Sys.init     => Argument-less function, responsible for calling the entry
+;;                   point (and maybe setting up memory segments?)
 
-|#
-
-
-
-;;; The following commented code can be ignored, and will potentially be removed
-;;; soon.
+;; NOTES:
+;; - Need to see if I need to handle control flow and function commands as separate
+;;   types of commands; I think I probably should, to keep the program clean.
+;; - Commands for control flow are simple enough, and easy to implement. Should be
+;;   the first step, and may be executed quickly.
+;; - Function calling commands are trickier, but intuition dictates that they might
+;;   be better expressed as meta-commands. For example, a "call F M" command
+;;   involves pushing a function's frame to the stack; pushing anything is still
+;;   technically at VM level, so maybe we should replace it by equivalent labels
+;;   and such.
+;; - I think I could add tail call optimization when implementing the call command.
+;;   For that, I'll revisit the explicit-control evaluator code on SICP's video
+;;   lectures, to figure out a simple way to do that.
 
 ;;; Ram address usage:
 ;; 0~15        => Virtual special registers
@@ -51,39 +44,6 @@ NOTES:
 ;; 2048~16383  => Heap
 ;; 16384~24575 => I/O map
 ;; 24575~32767 => Unused
-;; (defparameter *ram-table-base*
-;;   '((special . ("0"       "15"))
-;;     (static  . ("16"     "255"))
-;;     (stack   . ("256"   "2047"))
-;;     (heap    . ("2048"  "16383"))
-;;     (io      . ("16384" "24575"))
-;;     (unused  . ("24576" "32767")))
-;;   "Base addresses for RAM segments.")
-;;
-;;
-;; (defun ram-base-address (segment &key (position 'both))
-;;   "Returns the base address for a specific RAM segment.
-;; Passing key argument POSITION returns only a specific position of the segment,
-;; which could be START, END or BOTH, the latter being the default option."
-;;   (let ((segment-addrs (cdr (assoc segment *ram-table-base*))))
-;;     (when segment-addrs
-;;       (or (and (eq position 'start)
-;; 	       (car segment-addrs))
-;; 	  (and (eq position 'end)
-;; 	       (cadr segment-addrs))
-;; 	  (and (eq position 'both)
-;; 	       segment-addrs)))))
-;;
-;; (defun asm-static-ainstr (module-name static-num)
-;;   (format nil "~a.~d" module-name static-num))
-;;
-;; (defun intern-or-parse-value (x)
-;;   (handler-bind ((error (lambda (e)
-;; 			  (declare (ignore e))
-;; 			  (invoke-restart 'parse-as-symbol))))
-;;     (restart-case (progn (parse-integer x))
-;;       (parse-as-symbol ()
-;; 	(intern (string-upcase x))))))
 
 
 
@@ -197,6 +157,18 @@ certain region on Hack assembly, which can be jumped to."
   "Prefixes a label with @. Such a label indicates that the address of the first
 command under the label should be stored in the A register."
   (format nil "@~a" flag))
+
+(defun hack-push-value (value)
+  "Pushes a certain value onto the stack. Can also be a label."
+  (hack-inline (hack-ref value)   ; put pointer or value in A
+	       "D=A"              ; put pointer or value in D
+	       (push-from-dreg))) ; push from D into stack
+
+(defun hack-push-ref (pointer)
+  "Pushes a certain value refered by a pointer or label."
+  (hack-inline (hack-ref pointer) ; put pointer in A
+	       "D=M"              ; fetch value pointed by A into D
+	       (push-from-dreg))) ; push from D into stack
 
 
 ;;; ====================== Stack Commands Translation ====================== ;;;
@@ -384,18 +356,6 @@ produces Hack assembly code for that operation."
 
 ;;; ============== Function Calling Operations Translation ================= ;;;
 
-(defun push-value (value)
-  "Pushes a certain value onto the stack. Can also be a label."
-  (hack-inline (hack-ref value)   ; put pointer or value in A
-	       "D=A"              ; put pointer or value in D
-	       (push-from-dreg))) ; push from D into stack
-
-(defun push-ref (pointer)
-  "Pushes a certain value refered by a pointer or label."
-  (hack-inline (hack-ref pointer) ; put pointer in A
-	       "D=M"              ; fetch value pointed by A into D
-	       (push-from-dreg))) ; push from D into stack
-
 
 (defun call-function (function num-pushed-args)
   "Calls a function FUNCTION with a number NUM-PUSHED-ARGS of arguments, which
@@ -403,11 +363,11 @@ are presumed to be already pushed on stack."
   (let ((return-label (hack-flag "-INTERNAL.HACKVM.FUNCALL.RETURN"
 				 *funcall-ret-flag*)))
     (incf *funcall-ret-flag*) ; Increase ret-flag for next function call
-    (hack-inline (push-value return-label) ; push return instruction
-		 (push-ref "LCL")          ; push LCL
-		 (push-ref "ARG")          ; push ARG
-		 (push-ref "THIS")         ; push THIS
-		 (push-ref "THAT")         ; push THAT
+    (hack-inline (hack-push-value return-label) ; push return instruction addr
+		 (hack-push-ref "LCL")     ; push LCL
+		 (hack-push-ref "ARG")     ; push ARG
+		 (hack-push-ref "THIS")    ; push THIS
+		 (hack-push-ref "THAT")    ; push THAT
 		 ;; Reposition ARG to SP - n - 5
 		 "@SP"
 		 "D=M"                     ; take value pointed by SP into D
