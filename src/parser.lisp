@@ -121,6 +121,16 @@ comparision operations for the VM.")
   "Lists the strings corresponding to possible control flow operations for the
 VM.")
 
+(defparameter *function-operations*
+  (list "function" "call" "return")
+  "Lists the strings corresponding to possible function-calling operations for
+the VM.")
+
+(defparameter *funcall-ret-flag* 0
+  "Internal value for function returning.
+Increases at each function call performed, so that returning from a function
+happens at the proper point.")
+
 ;;; ============================== Utilities =============================== ;;;
 
 
@@ -255,7 +265,8 @@ Address is stored in A, and there is no guarantee that D will be intact."
 	       "D=M")) ; put M[A] in D
 
 (defun pop-segment (segment i)
-  "Pops the topmost value on the stack into SEGMENT at relative address I."
+  "Pops the topmost value on the stack into SEGMENT at relative address I.
+Manipulates extra registers R13 and R14."
   ;; Popping into constant is a very senseless thing to try
   (when (string= segment "constant")
     (error "Cannot pop to a constant value"))
@@ -371,6 +382,98 @@ produces Hack assembly code for that operation."
 
 
 
+;;; ============== Function Calling Operations Translation ================= ;;;
+
+(defun push-value (value)
+  "Pushes a certain value onto the stack. Can also be a label."
+  (hack-inline (hack-ref value)   ; put pointer or value in A
+	       "D=A"              ; put pointer or value in D
+	       (push-from-dreg))) ; push from D into stack
+
+(defun push-ref (pointer)
+  "Pushes a certain value refered by a pointer or label."
+  (hack-inline (hack-ref pointer) ; put pointer in A
+	       "D=M"              ; fetch value pointed by A into D
+	       (push-from-dreg))) ; push from D into stack
+
+
+(defun call-function (function num-pushed-args)
+  "Calls a function FUNCTION with a number NUM-PUSHED-ARGS of arguments, which
+are presumed to be already pushed on stack."
+  (let ((return-label (hack-flag "-INTERNAL.HACKVM.FUNCALL.RETURN"
+				 *funcall-ret-flag*)))
+    (incf *funcall-ret-flag*) ; Increase ret-flag for next function call
+    (hack-inline (push-value return-label) ; push return instruction
+		 (push-ref "LCL")          ; push LCL
+		 (push-ref "ARG")          ; push ARG
+		 (push-ref "THIS")         ; push THIS
+		 (push-ref "THAT")         ; push THAT
+		 ;; Reposition ARG to SP - n - 5
+		 "@SP"
+		 "D=M"                     ; take value pointed by SP into D
+		 (hack-ref num-pushed-args)
+		 "D=D-A"                   ; sub num of args into D
+		 "@5"
+		 "D=D-A"                   ; sub 5 into D
+		 "@ARG"
+		 "M=D"                     ; store D into place pointed by ARG
+		 ;; Reposition LCL in SP.
+		 ;; NOTE: When function enters, K local values will be pushed
+		 ;; onto the stack, so LCL will point at the first of them.
+		 "@SP"
+		 "D=M"                     ; take value pointed by SP into D
+		 "@LCL"
+		 "M=D"                     ; store D into place pointed by LCL
+		 ;; Unconditional jump into beginning of function
+		 (hack-ref function)
+		 "0;JMP"
+		 ;; Emplace return label
+		 (hack-enclose return-label))))
+
+(defun define-function (fun-name num-local-vars)
+  "Initializes the scope of a function FUN-NAME with an amount of NUM-LOCAL-VARS
+local variables."
+  (hack-inline (hack-enclose fun-name)     ; create label with function name
+	       ;; Push K local variables. Can be done statically like this since
+	       ;; function definitions won't change at runtime. However, the
+	       ;; program will take more space on ROM -- maybe remove?
+	       ;; However, this does seem easier, since we would have to
+	       ;; keep storing things in R13 for looping.
+	       (loop repeat (parse-integer num-local-vars)
+		  collect (push-value 0))))
+
+;; TODO: Hmmm, maybe I need to rework the pop operation so it only uses R13.
+;;       This way, I'll have R14 and R15 for FRAME and RET, and R13 is for stack
+;;       operations only.
+;; (defun return-from-function ()
+;;   "Finishes the scope of a function by restoring registers into original state."
+;;   (hack-inline "@LCL"
+;; 	       "D=M"    ; store contents of LCL into D
+;; 	       "@R15"   ; R15 serves the purpose of FRAME
+;; 	       "M=D"    ; store D into FRAME (R15)
+;; 	       ;; Put return address in temporary variable
+		 
+		 
+
+(defun perform-function-operation (operation &rest args)
+  "Takes a function calling operation OPERATION, along with the rest of its
+ARGS (however amount might they be), and produces Hack assembly code for said
+operation."
+  (case-string operation
+    ("call" (unless (= (length args) 2)
+	      (error "Wrong number of operands for CALL operation.~%In: ~a"
+		     (cons operation args)))
+	    (apply #'call-function args))
+    ("function" (unless (= (length args) 2)
+		  (error "Wrong number of operands for FUNCTION.~%In: ~a"
+			 (cons operation args)))
+		(apply #'define-function args))
+    ;; TODO
+    ("return"   (error "Unimplemented operation: RETURN~%In: ~a"
+		       (cons operation args)))))
+    
+
+
 ;;; =================== General VM Command Translation ===================== ;;;
 
 (defmacro command-of-p (command command-list)
@@ -405,6 +508,12 @@ returning a list of Hack assembly commands."
 	  ((command-of-p (car commands) *flow-operations*)
 	   (check-command-length commands 2)
 	   (apply #'perform-control-flow commands))
+	  ;; Function calling operations
+	  ((command-of-p (car commands) *function-operations*)
+	   (check-command-length ; Length of commands depends on
+	    commands             ; whether it is just a "return"
+	    (if (string= (car commands) "return") 1 3))
+	    (apply #'perform-function-operation commands))
 	  ;; Error or unexisting command
 	  (t (error "Unknown command: ~a" (car commands))))))
 
