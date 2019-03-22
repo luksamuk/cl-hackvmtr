@@ -8,16 +8,8 @@
 
 ;;                              ***  TODO LIST  ***
 
-;; DONE - New commands for Program Control Flow:
-;; - label LABEL   => Names a label at point
-;; - goto LABEL    => Unconditionally jump to a label (JMP-style)
-;; - if-goto LABEL => Jump to label iff popped value is not zero (JNE-style)
-
-;; New commands for Function Calling:
-;; - function F N => Starts the code of a function F with N local variables
-;; - call F M     => Calls function F, and states that M arguments were pushed to
-;;                   the stack
-;; - return       => Return the called function
+;; - Static segment: needs to be implemented on a per-file basis; maybe as a
+;;   parameter?
 
 ;; Functions to be implemented:
 ;; - Sys.init     => Argument-less function, responsible for calling the entry
@@ -169,6 +161,16 @@ command under the label should be stored in the A register."
   (hack-inline (hack-ref pointer) ; put pointer in A
 	       "D=M"              ; fetch value pointed by A into D
 	       (push-from-dreg))) ; push from D into stack
+
+(defun hack-fetch-deref-above (pointer i)
+  "Fetches the value pointed by POINTER-I and stores in D register"
+  (hack-inline (hack-ref pointer)
+	       ;; "D=A"              ; store POINTER into D
+	       "D=M"              ; store address referenced by POINTER in D
+	       (hack-ref i)
+	       "A=D-A"            ; store POINTER-i into A
+	       "A=M"              ; store M[POINTER-i] into A
+	       "D=M"))            ; store val pointed by M[POINTER-i] into A
 
 
 ;;; ====================== Stack Commands Translation ====================== ;;;
@@ -400,21 +402,56 @@ local variables."
 	       ;; However, this does seem easier, since we would have to
 	       ;; keep storing things in R13 for looping.
 	       (loop repeat (parse-integer num-local-vars)
-		  collect (push-value 0))))
+		  collect (hack-push-value 0))))
 
-;; TODO: Hmmm, maybe I need to rework the pop operation so it only uses R13.
-;;       This way, I'll have R14 and R15 for FRAME and RET, and R13 is for stack
-;;       operations only.
-;; (defun return-from-function ()
-;;   "Finishes the scope of a function by restoring registers into original state."
-;;   (hack-inline "@LCL"
-;; 	       "D=M"    ; store contents of LCL into D
-;; 	       "@R15"   ; R15 serves the purpose of FRAME
-;; 	       "M=D"    ; store D into FRAME (R15)
-;; 	       ;; Put return address in temporary variable
+(defun return-from-function ()
+  "Finishes the scope of a function by restoring registers into original state."
+  (hack-inline "@LCL"
+	       "D=M"      ; store contents of LCL into D
+	       "@R13"     ; R13 serves the purpose of FRAME
+	       "M=D"      ; store D into FRAME (R13)
+	       ;; D still contains value stored in FRAME
+	       "@5"
+	       "A=D-A"    ; Store FRAME - 5 into A
+	       "D=M"      ; Put contents of M[FRAME - 5] into D
+	       "@R14"     ; R14 serves the purpose of RET (return value)
+	       "M=D"      ; Store return value
+	       ;; Reposition return value of caller
+	       (pop-into-dreg) ; pop into D
+	       "@ARG"
+	       "A=M"      ; store *ARG into A
+	       "M=D"      ; put D into *ARG
+	       ;; Restore SP of caller
+	       "@ARG"
+	       "A=M"      ; put address pointed by ARG in A
+	       "D=A+1"    ; put A + 1 in D
+	       "@SP"
+	       "M=D"      ; put D in SP
+	       ;; Restore THAT
+	       (hack-fetch-deref-above "R13" 1) ; put *(FRAME-1) into D
+	       "@THAT"
+	       "M=D"      ; put *(FRAME-1) into THAT
+	       ;; Restore THIS
+	       (hack-fetch-deref-above "R13" 2) ; put *(FRAME-2) into D
+	       "@THIS"
+	       "M=D"      ; put *(FRAME-2) into THIS
+	       ;; Restore ARG
+	       (hack-fetch-deref-above "R13" 3) ; put *(FRAME-3) into D
+	       "@ARG"
+	       "M=D"      ; put *(FRAME-3) into ARG
+	       ;; Restore LCL
+	       (hack-fetch-deref-above "R13" 4) ; put *(FRAME-4) into D
+	       "@LCL"
+	       "M=D"      ; put *(FRAME-4) into LCL
+	       ;; Jump to RET
+	       "@R14"
+	       "A=M"      ; put value of RET into A
+	       "0;JMP"))  ; unconditional jump into RET (function return)
+	       
+	       
 		 
 		 
-
+;; TODO: Arg check unecessary?
 (defun perform-function-operation (operation &rest args)
   "Takes a function calling operation OPERATION, along with the rest of its
 ARGS (however amount might they be), and produces Hack assembly code for said
@@ -428,9 +465,10 @@ operation."
 		  (error "Wrong number of operands for FUNCTION.~%In: ~a"
 			 (cons operation args)))
 		(apply #'define-function args))
-    ;; TODO
-    ("return"   (error "Unimplemented operation: RETURN~%In: ~a"
-		       (cons operation args)))))
+    ("return"   (unless (zerop (length args))
+		  (error "RETURN expects no operands.~%In: ~a"
+			 (cons operation args)))
+		(return-from-function))))
     
 
 
