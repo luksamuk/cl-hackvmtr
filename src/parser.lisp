@@ -207,7 +207,7 @@ Address is stored in A, and there is no guarantee that D will be intact."
 	  ((string= segment "static")
 	   (when (null *current-filename*)
 	     (error "Cannot perform operation with static: invalid filename"))
-	   (list (concatenate 'string *current-filename* "." i)))
+	   (list (format nil "@~a.~d" *current-filename* i)))
 	  ;; Segment with address = 0 is the segment itself
 	  ((string= i "0")
 	   (list segm           ; Load base address pointer in A
@@ -367,7 +367,7 @@ produces Hack assembly code for that operation."
   "Calls a function FUNCTION with a number NUM-PUSHED-ARGS of arguments, which
 are presumed to be already pushed on stack. FUNCTION is expected to be a string
 containing the full form of the function name for a proper call."
-  (let ((return-label (hack-flag "-INTERNAL.HACKVM.FUNCALL.RETURN"
+  (let ((return-label (hack-flag "-internal.hackvm.funcallret"
 				 *funcall-ret-flag*)))
     (incf *funcall-ret-flag*) ; Increase ret-flag for next function call
     (hack-inline (hack-push-value return-label) ; push return instruction addr
