@@ -8,18 +8,13 @@
 
 ;;                              ***  TODO LIST  ***
 
-;; - Static segment: needs to be implemented on a per-file basis; maybe as a
-;;   parameter?
-;; - Sys.init: The VM Translator assumes that this function exists.
+;; Future additions:
+;; - Tail call optimization. I have a hunch on how it should be implemented, but
+;;   it is not really necessary right now. Maybe on a future opportunity.
 
-;; NOTES:
-;; - I think I could add tail call optimization when implementing the call
-;;   command. For that, I'll revisit the explicit-control evaluator code on
-;;   SICP's video lectures, to figure out a simple way to do that.
-
-;;; Ram address usage:
+;;; Memory model:
 ;; 0~15        => Virtual special registers
-;; 16~255      => Static variables (VM functions)
+;; 16~255      => Static variables (VM functions) -- handled by assembler
 ;; 256~2047    => Stack
 ;; 2048~16383  => Heap
 ;; 16384~24575 => I/O map

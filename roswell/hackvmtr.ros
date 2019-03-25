@@ -27,7 +27,7 @@ exec ros -Q -- $0 "$@"
 
 (defun show-usage ()
   (format-usage
-   "cl-hackvmtr v1.0.0 beta"
+   "cl-hackvmtr v1.0.0"
    "Copyright (c) 2019 Lucas Vieira"
    "Distributed under the MIT License.~%"
    "Usage: hackvmtr /path/to/file/or/dir~%"
