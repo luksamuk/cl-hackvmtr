@@ -8,9 +8,10 @@ cl-hackvmtr is a VM Translator for the Hack platform, written in Common Lisp. It
 was designed as the exercise for Chapters 7 and 8 of the book The Elements of
 Computing Systems, by Nisan and Schocken.
 
-More information on my progress on the book can be seen at my [[https://github.com/luksamuk/study][study]] repository.
+*This VM Translator comprises the full translator for the Hack platform, which
+works perfectly for all scripts up to Chapter 8 of the book.*
 
-*This project is currently Chapter 7-compliant only.*
+More information on my progress on the book can be seen at my [[https://github.com/luksamuk/study][study]] repository.
 
 * Usage
 
@@ -34,6 +35,17 @@ following:
 This will create a ~directory-or-file-name.asm~ file, which can be finally
 compiled into bytecode for the Hack platform.
 
+If you want the generated code to not have the starting bootstrap section, which
+sets up the stack and calls =Sys.init=, just pass the flag which inhibits the
+bootstrap section to ~vm-translate~:
+
+#+begin_src lisp
+(cl-hackvmtr:vm-translate "/path/to/file/or/directory" t)
+#+end_src
+
+A file with the same name of the =.vm= file or directory will appear on the
+current location, with an appended =.asm= extension to it.
+
 ** Using from Roswell
 
 One can simply install this tool using Roswell with the following command:
@@ -47,10 +59,30 @@ from command line. Simply pass as argument either a single ~.vm~ file, or a
 directory containing ~.vm~ files, and ~hackvmtr~ will attempt to generate a single
 assembly file for the given file or directory.
 
+You may call the application directly, just as you would use any other
+application. This VM Translator will only translate a single directory or file
+at once:
+
+#+begin_src bash
+hackvmtr /path/to/file/or/directory
+#+end_src
+
+If you want the generated code to not have the starting bootstrap section, which
+sets up the stack and calls =Sys.init=, just pass the flags =--no-bootstrap= or =-nb=,
+which inhibits the bootstrap section, at any position of the command:
+
+#+begin_src bash
+hackvmtr --no-bootstrap /path/to/file/or/directory
+#+end_src
+
+Just like using the REPL directly, an =.asm= file will appear on the current
+directory, named after the compiled =.vm= file or the compiled directory.
+
 ** Using =qlot=
 
 This project also supports [[https://github.com/fukamachi/qlot][qlot]], so one will be able to use this tool to either
-run or develop this project.
+run or develop this project. However, the primary use of =qlot= involved setting
+up a local Quicklisp directory with SLIME support.
 
 * Unit Testing
 

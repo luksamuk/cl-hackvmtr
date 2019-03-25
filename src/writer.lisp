@@ -6,11 +6,11 @@
 
 (in-package :cl-hackvmtr)
 
-(defun vm-parse-commands (command-list)
+(defun vm-parse-commands (command-list &optional (file-name nil))
   "Takes a list of VM commands and generates a list of assembly commands,
 corresponding to the operations, in assembly for the Hack platform."
   (loop for command in command-list
-     append (vm-dispatch-command command)))
+     append (vm-dispatch-command command file-name)))
 
 (defun pretty-print-commands (translated-commands)
   "Pretty-prints all commands, line by line, on the output stream."
@@ -29,12 +29,21 @@ corresponding to the operations, in assembly for the Hack platform."
     (error () (format t "Cannot output to file.~%") nil)))
 
 
-(defun vm-parse-all-commands (multiple-file-commands)
-  "Takes a list, where each element is also a list corresponding to the VM
-commands of a single file, and translates everything into a single, flat list of
-assembly commands for the Hack platform."
-  (flatten (list (vm-initialization)
-		 (loop for file-commands in multiple-file-commands
-		    append (vm-parse-commands file-commands))
-		 (vm-halt)
-		 (setf *arith-tst-flag* 0))))
+(defun vm-parse-all-commands (multiple-file-specs &optional (no-bootstrap nil))
+  "Takes a list of file specs. Each spec is another list, comprised of a string
+file name (without extension) and a list of commands contained in the file. Each
+spec is then translated into assembly commands for the Hack platform, and
+flattened into a single depth-one list of assembly commands. NO-BOOSTRAP
+optionally informs whether the translation should contain the bootstrap code for
+setting up the stack and calling 'Sys.init'."
+  (flatten (list (unless no-bootstrap
+		   (vm-initialization))
+		 (loop for spec in multiple-file-specs
+		    append (vm-parse-commands (cadr spec)
+					      (car spec)))
+		 ;; Restore internal counters. Should return nil so it doesn't
+		 ;; interfere with the rest of the program.
+		 (setf *arith-tst-flag*     0
+		       *funcall-ret-flag*   0
+		       *current-filename* nil))))
+
