@@ -67,9 +67,10 @@ executes the command at CONSEQ. Otherwise, executes the command at ALTERN."
 		 (write-asm-file (concatenate 'string "./" output-name ".asm")
 				 (vm-parse-all-commands
 				  (mapcar #'read-vm-file (cadr input)))))
-		 (t (write-asm-file (concatenate 'string "./" output-name ".asm")
-				    (vm-parse-all-commands
-				     (read-vm-file (cdr input))))))
+		(t
+		 (write-asm-file (concatenate 'string "./" output-name ".asm")
+				 (vm-parse-all-commands
+				  (list (read-vm-file input))))))
 	(error (err)
 	  (format t "~a~%" err)
 	  (format t "Error translating project. Bailing out.~%"))))))
