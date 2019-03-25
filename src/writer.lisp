@@ -41,7 +41,8 @@ setting up the stack and calling 'Sys.init'."
 		 (loop for spec in multiple-file-specs
 		    append (vm-parse-commands (cadr spec)
 					      (car spec)))
-		 ;; (vm-halt)
+		 ;; Restore internal counters. Should return nil so it doesn't
+		 ;; interfere with the rest of the program.
 		 (setf *arith-tst-flag*     0
 		       *funcall-ret-flag*   0
 		       *current-filename* nil))))

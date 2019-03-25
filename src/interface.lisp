@@ -6,6 +6,10 @@
 (in-package :cl-hackvmtr)
 
 (defun get-module-from-path (path)
+  "Takes a PATH and returns a module name. The module name may be equal to
+either the directory name, or to the file name without extension. The module
+name is used for naming the final ASM file, and for naming the static variables
+for each file."
   (cond ((equal (search ".vm" path :from-end t)
 		(- (length path) 3))
 	 (subseq path
@@ -50,11 +54,11 @@ element is a list of VM commands to be translated."
 	   (error () nil)))))
 
 
-(defmacro if-let ((var value) conseq &optional altern)
+(defmacro if-let ((var value) conseq)
   "Attempts to bind VALUE to VAR, then checks whether VAR is NIL. If not,
-executes the command at CONSEQ. Otherwise, executes the command at ALTERN."
+executes the command at CONSEQ."
   `(let ((,var ,value))
-     (if (not (null ,var)) ,conseq ,altern)))
+     (if (not (null ,var)) ,conseq nil)))
 
 
 (defun vm-translate (file-or-dir &optional (no-bootstrap nil))

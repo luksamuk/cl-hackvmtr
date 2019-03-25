@@ -110,15 +110,6 @@ corresponds to a string comparision."
 	   collect `((string= ,keyform ,(car case))
 		     ,@(cdr case)))))
 
-;; (defun make-function-name (function-name)
-;;   "Generates the name for a function, given the current file being handled. If
-;; not file name was provided, or of the FUNCTION-NAME begins with 'Sys.', just
-;; returns FUNCTION-NAME."
-;;   (if (or (not *current-filename*)
-;; 	  (zerop (or (search "Sys." function-name) -1)))
-;;       function-name
-;;       (concatenate 'string *current-filename* "$" function-name)))
-
 ;;; --------------------- ASM code generation tools ------------------------ ;;;
 
 (defmacro hack-inline (&rest commands)
@@ -548,9 +539,3 @@ prepend functions created by the given command."
   (list (initialize-segment "SP"    256)
 	(call-function "Sys.init" 0)))
 
-;; (defun vm-halt ()
-;;   "Produces an infinite loop to be appended to the complete Hack assembly code,
-;; after translation, so that the machine does not execute arbitrary code."
-;;   (list "(-INTERNAL.HACKVM.HALT)"
-;; 	"@-INTERNAL.HACKVM.HALT"
-;; 	"0;JMP"))
