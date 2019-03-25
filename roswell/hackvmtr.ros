@@ -27,19 +27,27 @@ exec ros -Q -- $0 "$@"
 
 (defun show-usage ()
   (format-usage
-   "cl-hackvmtr v0.6.0 beta"
+   "cl-hackvmtr v1.0.0 beta"
    "Copyright (c) 2019 Lucas Vieira"
    "Distributed under the MIT License.~%"
    "Usage: hackvmtr /path/to/file/or/dir~%"
+   "Args:"
+   "--no-bootstrap, -nb   Removes the bootstrap section from code.~%"
    "This is the VM translator for the Hack platform, which takes one or"
    "a series of .vm files and turns them into a single .asm file. This tool"
    "was written in Common Lisp."))
 
 (defun main (&rest argv)
-  (if (or (not argv)
-	  (> (length argv) 1))
+  (let* ((no-bootstrap (loop for arg in argv
+			  thereis (or (string= arg "--no-bootstrap")
+				      (string= arg "-nb"))))
+	 (args (remove-if (lambda (x) (or (string= x "--no-bootstrap")
+				     (string= x "-nb")))
+			  argv)))
+  (if (or (not args)
+	  (> (length args) 1))
       (show-usage)
       (progn (format t "Translating \"~a\"...~%" (car argv))
-	     (cl-hackvmtr:vm-translate (car argv)))))
+	     (cl-hackvmtr:vm-translate (car argv) no-bootstrap)))))
 
 ;;; vim: set ft=lisp lisp:

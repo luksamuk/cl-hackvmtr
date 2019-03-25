@@ -57,8 +57,11 @@ executes the command at CONSEQ. Otherwise, executes the command at ALTERN."
      (if (not (null ,var)) ,conseq ,altern)))
 
 
-(defun vm-translate (file-or-dir)
-  "Global command for translating a VM file or directory."
+(defun vm-translate (file-or-dir &optional (no-bootstrap nil))
+  "Global command for translating a VM file or directory. FILE-OR-DIR should
+name a valid .vm file, or a directory containing .vm files. NO-BOOSTRAP
+optionally informs whether the translation should contain the bootstrap code for
+setting up the stack and calling 'Sys.init'."
   (if-let (path (truename file-or-dir))
     (let* ((input (read-vm-input (uiop:unix-namestring path)))
 	   (output-name (car input)))
@@ -66,11 +69,13 @@ executes the command at CONSEQ. Otherwise, executes the command at ALTERN."
 	  (cond ((listp (cdr input)) ; List of files
 		 (write-asm-file (concatenate 'string "./" output-name ".asm")
 				 (vm-parse-all-commands
-				  (mapcar #'read-vm-file (cadr input)))))
+				  (mapcar #'read-vm-file (cadr input))
+				  no-bootstrap)))
 		(t
 		 (write-asm-file (concatenate 'string "./" output-name ".asm")
 				 (vm-parse-all-commands
-				  (list (read-vm-file input))))))
+				  (list (read-vm-file input))
+				  no-bootstrap))))
 	(error (err)
 	  (format t "~a~%" err)
 	  (format t "Error translating project. Bailing out.~%"))))))

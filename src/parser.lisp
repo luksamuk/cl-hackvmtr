@@ -190,13 +190,12 @@ Address is stored in A, and there is no guarantee that D will be intact."
     ;;; Dispatch the segment address fetch in a per-segment basis.
     (cond ((string= segment "constant") ; 'constant' just puts a number in A
 	   (list inum))         ; Load i in A
-	  ;; 'temp', 'static' & 'pointer' are special in the sense that we
+	  ;; 'temp' and 'pointer' are special in the sense that we
 	  ;; use them as data segments. 'pointer' is used to manipulate
 	  ;; the current pointed regions of 'this' and 'that', so they're
 	  ;; pretty much handled as raw information.
 	  ((or (string= segment "temp")
-	       (string= segment "pointer")
-	       (string= segment "static"))
+	       (string= segment "pointer"))
 	   (if (string= i "0")  ;; Check if calculation is needed
 	       (list segm)      ; If not, load @5 into A
 	       ;; If needed, calculate absolute pointer into A
@@ -204,6 +203,12 @@ Address is stored in A, and there is no guarantee that D will be intact."
 		     "D=A"      ; Store A into D
 		     inum       ; Load i into A
 		     "A=D+A"))) ; Store addr + A in A
+	  ;; When dealing with a 'static' variable, simply generate a label
+	  ;; '@Filename.x'. The assembler will figure out what to do with it.
+	  ((string= segment "static")
+	   (when (null *current-filename*)
+	     (error "Cannot perform operation with static: invalid filename"))
+	   (list (concatenate 'string *current-filename* "." i)))
 	  ;; Segment with address = 0 is the segment itself
 	  ((string= i "0")
 	   (list segm           ; Load base address pointer in A
@@ -532,9 +537,9 @@ prepend functions created by the given command."
   (list (initialize-segment "SP"    256)
 	(call-function "Sys.init" 0)))
 
-(defun vm-halt ()
-  "Produces an infinite loop to be appended to the complete Hack assembly code,
-after translation, so that the machine does not execute arbitrary code."
-  (list "(-INTERNAL.HACKVM.HALT)"
-	"@-INTERNAL.HACKVM.HALT"
-	"0;JMP"))
+;; (defun vm-halt ()
+;;   "Produces an infinite loop to be appended to the complete Hack assembly code,
+;; after translation, so that the machine does not execute arbitrary code."
+;;   (list "(-INTERNAL.HACKVM.HALT)"
+;; 	"@-INTERNAL.HACKVM.HALT"
+;; 	"0;JMP"))
