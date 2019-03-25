@@ -162,15 +162,14 @@ command under the label should be stored in the A register."
 	       "D=M"              ; fetch value pointed by A into D
 	       (push-from-dreg))) ; push from D into stack
 
-(defun hack-fetch-deref-above (pointer i)
-  "Fetches the value pointed by POINTER-I and stores in D register"
+(defun hack-fetch-above (pointer i)
+  "Fetches the value stored by (POINTER-I) and stores in D register"
   (hack-inline (hack-ref pointer)
 	       ;; "D=A"              ; store POINTER into D
 	       "D=M"              ; store address referenced by POINTER in D
 	       (hack-ref i)
 	       "A=D-A"            ; store POINTER-i into A
-	       "A=M"              ; store M[POINTER-i] into A
-	       "D=M"))            ; store val pointed by M[POINTER-i] into A
+	       "D=M"))            ; store M[POINTER-i] into A
 
 
 ;;; ====================== Stack Commands Translation ====================== ;;;
@@ -413,43 +412,60 @@ local variables."
 
 (defun return-from-function ()
   "Finishes the scope of a function by restoring registers into original state."
+  ;;;          FRAME = LCL
   (hack-inline "@LCL"
 	       "D=M"      ; store contents of LCL into D
 	       "@R13"     ; R13 serves the purpose of FRAME
 	       "M=D"      ; store D into FRAME (R13)
 	       ;; D still contains value stored in FRAME
+
+               ;;;   RET = *(FRAME-5)
 	       "@5"
 	       "A=D-A"    ; Store FRAME - 5 into A
 	       "D=M"      ; Put contents of M[FRAME - 5] into D
 	       "@R14"     ; R14 serves the purpose of RET (return value)
-	       "M=D"      ; Store return value
+	       "M=D"      ; Store return value into RET (R14)
+	       
+	       ;;; *ARG = pop()
 	       ;; Reposition return value of caller
 	       (pop-into-dreg) ; pop into D
 	       "@ARG"
 	       "A=M"      ; store *ARG into A
 	       "M=D"      ; put D into *ARG
+
+	       ;;; SP = ARG+1
 	       ;; Restore SP of caller
 	       "@ARG"
 	       "A=M"      ; put address pointed by ARG in A
 	       "D=A+1"    ; put A + 1 in D
 	       "@SP"
 	       "M=D"      ; put D in SP
+
+	       ;;; THAT = *(FRAME-1)
 	       ;; Restore THAT
-	       (hack-fetch-deref-above "R13" 1) ; put *(FRAME-1) into D
+	       (hack-fetch-above "R13" 1) ; put *(FRAME-1) into D
 	       "@THAT"
 	       "M=D"      ; put *(FRAME-1) into THAT
+
+	       ;;; THIS = *(FRAME-2)
 	       ;; Restore THIS
-	       (hack-fetch-deref-above "R13" 2) ; put *(FRAME-2) into D
+	       (hack-fetch-above "R13" 2) ; put *(FRAME-2) into D
 	       "@THIS"
 	       "M=D"      ; put *(FRAME-2) into THIS
+
+	       ;;; ARG = *(FRAME-3)
 	       ;; Restore ARG
-	       (hack-fetch-deref-above "R13" 3) ; put *(FRAME-3) into D
+	       (hack-fetch-above "R13" 3) ; put *(FRAME-3) into D
 	       "@ARG"
 	       "M=D"      ; put *(FRAME-3) into ARG
+
+	       ;;; LCL = *(FRAME-4)
 	       ;; Restore LCL
-	       (hack-fetch-deref-above "R13" 4) ; put *(FRAME-4) into D
+	       (hack-fetch-above "R13" 4) ; put *(FRAME-4) into D
 	       "@LCL"
 	       "M=D"      ; put *(FRAME-4) into LCL
+
+	       ;;; goto RET
 	       ;; Jump to RET
 	       "@R14"
 	       "A=M"      ; put value of RET into A
