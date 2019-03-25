@@ -10,24 +10,12 @@
 
 ;; - Static segment: needs to be implemented on a per-file basis; maybe as a
 ;;   parameter?
-
-;; Functions to be implemented:
-;; - Sys.init     => Argument-less function, responsible for calling the entry
-;;                   point (and maybe setting up memory segments?)
+;; - Sys.init: The VM Translator assumes that this function exists.
 
 ;; NOTES:
-;; - Need to see if I need to handle control flow and function commands as separate
-;;   types of commands; I think I probably should, to keep the program clean.
-;; - Commands for control flow are simple enough, and easy to implement. Should be
-;;   the first step, and may be executed quickly.
-;; - Function calling commands are trickier, but intuition dictates that they might
-;;   be better expressed as meta-commands. For example, a "call F M" command
-;;   involves pushing a function's frame to the stack; pushing anything is still
-;;   technically at VM level, so maybe we should replace it by equivalent labels
-;;   and such.
-;; - I think I could add tail call optimization when implementing the call command.
-;;   For that, I'll revisit the explicit-control evaluator code on SICP's video
-;;   lectures, to figure out a simple way to do that.
+;; - I think I could add tail call optimization when implementing the call
+;;   command. For that, I'll revisit the explicit-control evaluator code on
+;;   SICP's video lectures, to figure out a simple way to do that.
 
 ;;; Ram address usage:
 ;; 0~15        => Virtual special registers
@@ -83,6 +71,10 @@ the VM.")
 Increases at each function call performed, so that returning from a function
 happens at the proper point.")
 
+(defparameter *current-filename* nil
+  "Temporarily stores the name of the current .vm file being handled. Useful for
+function naming.")
+
 ;;; ============================== Utilities =============================== ;;;
 
 
@@ -123,6 +115,14 @@ corresponds to a string comparision."
 	   collect `((string= ,keyform ,(car case))
 		     ,@(cdr case)))))
 
+;; (defun make-function-name (function-name)
+;;   "Generates the name for a function, given the current file being handled. If
+;; not file name was provided, or of the FUNCTION-NAME begins with 'Sys.', just
+;; returns FUNCTION-NAME."
+;;   (if (or (not *current-filename*)
+;; 	  (zerop (or (search "Sys." function-name) -1)))
+;;       function-name
+;;       (concatenate 'string *current-filename* "$" function-name)))
 
 ;;; --------------------- ASM code generation tools ------------------------ ;;;
 
@@ -361,7 +361,8 @@ produces Hack assembly code for that operation."
 
 (defun call-function (function num-pushed-args)
   "Calls a function FUNCTION with a number NUM-PUSHED-ARGS of arguments, which
-are presumed to be already pushed on stack."
+are presumed to be already pushed on stack. FUNCTION is expected to be a string
+containing the full form of the function name for a proper call."
   (let ((return-label (hack-flag "-INTERNAL.HACKVM.FUNCALL.RETURN"
 				 *funcall-ret-flag*)))
     (incf *funcall-ret-flag*) ; Increase ret-flag for next function call
@@ -395,7 +396,8 @@ are presumed to be already pushed on stack."
 (defun define-function (fun-name num-local-vars)
   "Initializes the scope of a function FUN-NAME with an amount of NUM-LOCAL-VARS
 local variables."
-  (hack-inline (hack-enclose fun-name)     ; create label with function name
+  (hack-inline (hack-enclose fun-name)
+	       ;; (hack-enclose (make-function-name fun-name)) ; old...
 	       ;; Push K local variables. Can be done statically like this since
 	       ;; function definitions won't change at runtime. However, the
 	       ;; program will take more space on ROM -- maybe remove?
@@ -487,9 +489,11 @@ certain IDEAL-ARITY length."
 	    (if (< (length ,split-command) ,ideal-arity) "few" "many")
 	    ,split-command)))
 
-(defun vm-dispatch-command (command-string)
+(defun vm-dispatch-command (command-string &optional (filename nil))
   "Takes a COMMAND-STRING and dispatches it to translation subroutines,
-returning a list of Hack assembly commands."
+returning a list of Hack assembly commands. FILENAME is the string which should
+prepend functions created by the given command."
+  (setf *current-filename* filename) ; put filename up for global usage
   (let ((commands (split-sequence #\Space command-string)))
     ;;       Arithmetic operations
     (cond ((command-of-p (car commands) *arithmetic-operations*)
@@ -524,14 +528,9 @@ returning a list of Hack assembly commands."
 	       "M=D"))
 
 (defun vm-initialization ()
-  "Initializes the VM by setting up the proper values to certain segments,
-so that the machine does not execute arbitrary code."
+  "Initializes the VM's stack, and calls the Sys.init function."
   (list (initialize-segment "SP"    256)
-	;; Other base addresses. These are potential placeholders
-	(initialize-segment "LCL"   300)
-	(initialize-segment "ARG"   400)
-	(initialize-segment "THIS" 3000)
-	(initialize-segment "THAT" 3010)))
+	(call-function "Sys.init" 0)))
 
 (defun vm-halt ()
   "Produces an infinite loop to be appended to the complete Hack assembly code,
